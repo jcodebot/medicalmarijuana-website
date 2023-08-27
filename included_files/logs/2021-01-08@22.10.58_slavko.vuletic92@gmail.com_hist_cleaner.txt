@@ -1,0 +1,506 @@
+    1  echo "SO: Removing QMC project containers "
+    2  echo "removing -> icc_container"
+    3  docker rm icc_container
+    4  echo "removing -> qmc_container"
+    5  docker rm qmc_container
+    6  echo "removing -> mysql_container"
+    7  docker rm mysql_container
+    8  echo "removing -> qmc_phpmyadmin"
+    9  docker rm qmc_phpmyadmin
+   10  echo "EO: Removing QMC containers "
+   11  # DONE -> .htaccess files
+   12  echo ""
+   13  echo "Doing a system prune of unused stuff {not a whole docker prune...only minor one}"
+   14  yes Y |docker system prune
+   15  echo "[Done -> docker system prune ]"
+   16  echo ""
+   17  echo -e "Press \e[1m[enter] \e[0mto EXIT the QMC_stopper"
+   18  read -p ''
+   19  #-----------------------------------------------------------#
+   20  # FileName: QMC_autobuilder.sh                              #
+   21  # Desc: Should allow running qmc project with one click     #
+   22  # Author: Slavko V.                                         #
+   23  # Date: 2021.01.08                                          #
+   24  #-|-|-|-|-|-|-|-|-|-|-|-|-|-|-|-|-|-|-|-|-|-|-|-|-|-|-|-|-|-#
+   25  echo -e '< \e[1mWelcome to QMC autobuilder\e[0m >'
+   26  echo ''
+   27  echo -e '\e[2mDescription\e[22m  : This will clone repositories required for running QMC containers.'
+   28  echo -e '\e[2mRequirements\e[22m : docker, composer [in your local os] and missing_files folder'
+   29  echo ''
+   30  echo -e "Press \e[1m[enter] \e[0mto BEGIN the setup"
+   31  read -p ''
+   32  declare -i errorNumb=0
+   33  errMSG='ErrorMSG List: [ '
+   34  echo  
+   35  # << SO 1.Check Missing files section SO >> #
+   36  echo 'Looking for a missing files'
+   37  # << SO 1.1.looking for folder named 'missing_files' SO >> #
+   38  if [ -d "missing_files" ] ; then     echo "Directory < missing_files > exists." ; else     errorNumb=errorNumb+1;     errMSG=$errMSG"|> Error: Directory < missing_files > does not exists. <"; fi
+   39  # << EO 1.1. looking for folder named 'missing_files' EO >> #
+   40  #
+   41  # << SO 1.2. Looking for config.php file SO >> #
+   42  FILE=missing_files/config.php
+   43  if [ -f "$FILE" ]; then     echo "$FILE exists."; else      errorNumb=errorNumb+1;     errMSG=$errMSG"|> ERROR: File $FILE does not exist. <|"; fi
+   44  # << EO 1.2. Looking for config.php file EO >> #
+   45  #
+   46  # << SO 1.3. Looking for database.php file SO >> #
+   47  FILE=missing_files/database.php
+   48  if [ -f "$FILE" ]; then     echo "$FILE exists."; else      errorNumb=errorNumb+1;     errMSG=$errMSG"|> ERROR: File $FILE does not exist. <|"; fi
+   49  # << EO 1.3. Looking for database.php file EO >> #
+   50  #
+   51  # << SO 1.4. Looking for phinx.yml file SO >> #
+   52  FILE=missing_files/phinx.yml
+   53  if [ -f "$FILE" ]; then     echo "$FILE exists."; else      errorNumb=errorNumb+1;     errMSG=$errMSG"|> ERROR: File $FILE does not exist. <|"; fi
+   54  # << EO 1.4. Looking for phinx.yml file EO >> #
+   55  #
+   56  # << SO 1.5. Looking for instacraft.sql file SO >> #
+   57  FILE=missing_files/instacraft.sql
+   58  if [ -f "$FILE" ]; then     echo "$FILE exists."; else      errorNumb=errorNumb+1;     errMSG=$errMSG"|> ERROR: File $FILE does not exist. <|"; fi
+   59  # << EO 1.5. Looking for instacraft.sql file EO >> #
+   60  #
+   61  # << SO 1.5. Looking for htaccess file SO >> #
+   62  FILE=missing_files/htaccess
+   63  if [ -f "$FILE" ]; then     echo "$FILE exists."; else      errorNumb=errorNumb+1;     errMSG=$errMSG"|> ERROR: File $FILE does not exist. <|"; fi
+   64  # << EO 1.5. Looking for htaccess file EO >> #
+   65  # << EOmissing files sectionEO >> #
+   66  echo
+   67  # << SO error check if run build SO >> #
+   68  #read -p "Press [enter] to CONTINUE the setup"    
+   69  if [ "$errorNumb" -gt 0 ]; then         errMSG=$errMSG" ]";     echo 'Number of Errors: '$errorNumb;     echo "$errMSG"; else      echo '';     read -p "Press [enter] to CONTINUE the setup";     echo "[Build process started....";     echo "."     echo "START: Cloning Instacraft-Med repo.";     git clone https://bitbucket.org/bloomcraft/instacraft-med.git;     echo "DONE: Cloning Instacraft-Med repo."     echo ""     echo "START: Cloning Instacraft repo...";     git clone https://bitbucket.org/bloomcraft/instacraft.git;     echo "DONE: cloning Instacraft repo."     echo ""     echo "START: Database make folder and copy over";     cd instacraft-med ;     mkdir '.database';     cd ..;     cp missing_files/instacraft.sql instacraft-med/.database/instacraft.sql;     echo "DONE: Database make folder and copy over"     echo ""     echo "START: Create env files";     cp instacraft-med/.env.development instacraft-med/.env;     cp instacraft/.env.development instacraft/.env;     echo "DONE: Create env files"     echo ""     echo "START: Create .htaccess files";     cp missing_files/htaccess instacraft-med/.htaccess;     cp missing_files/htaccess instacraft/.htaccess;     echo "DONE: Create .htaccess files"     echo ""     echo "START: Create phinx.yml files";     cp missing_files/phinx.yml instacraft-med/phinx.yml;     echo "DONE: Create phinx.yml files"     echo ""     echo "START: Adding missing PHP files";     cp missing_files/config.php instacraft-med/application/config/config.php;     cp missing_files/database.php instacraft-med/application/config/database.php;     echo "DONE: Adding missing PHP files"     echo ""     echo "START: Install Composer [both dirs]";     cd instacraft;     composer install;     cd ..;     cd instacraft-med;     composer install;     docker-compose up --build -d;     winpty docker exec -it qmc_container bash -c "vendor/bin/phinx migrate -e testing && vendor/bin/phinx seed:run -e testing && exit ";     cd ..;     cd instacraft;     docker-compose up --build -d;     winpty docker exec -it icc_container bash -c "vendor/bin/phinx migrate -e testing && vendor/bin/phinx seed:run -e testing && exit ";     winpty docker exec -it qmc_container bash -c "vendor/bin/phinx migrate -e testing && vendor/bin/phinx seed:run -e testing && exit ";     echo "DONE: Install Composer [both dirs]"     echo ".";     echo "....and report being done here.]"
+   70  fi  # << EO error check if run build EO >> #
+   71  #-----------------------------------------------------------#
+   72  # FileName: QMC_auto[stop^clean].sh                         #
+   73  # Desc: Should allow stopping containers in one click       #
+   74  # Author: Slavko V.                                         #
+   75  # Date: 2021.01.08                                          #
+   76  #-|-|-|-|-|-|-|-|-|-|-|-|-|-|-|-|-|-|-|-|-|-|-|-|-|-|-|-|-|-#
+   77  echo -e '< \e[1mWelcome to QMC auto[stop^clean]\e[0m >'
+   78  echo ''
+   79  echo -e '\e[2mDescription\e[22m  : This will stop and remove containers.'
+   80  echo ""
+   81  echo -e "Press \e[1m[enter] \e[0mto BEGIN the setup"
+   82  read -p ''
+   83  # Create .htaccess files
+   84  echo "SO: Stopping QMC project containers "
+   85  echo "stopping -> icc_container"
+   86  docker stop icc_container
+   87  echo "stopping -> qmc_container"
+   88  docker stop qmc_container
+   89  echo "stopping -> mysql_container"
+   90  docker stop mysql_container
+   91  echo "stopping -> qmc_phpmyadmin"
+   92  docker stop qmc_phpmyadmin
+   93  echo "EO: Stopping QMC project containers "
+   94  echo ""
+   95  echo "SO: Removing QMC project containers "
+   96  echo "removing -> icc_container"
+   97  docker rm icc_container
+   98  echo "removing -> qmc_container"
+   99  docker rm qmc_container
+  100  echo "removing -> mysql_container"
+  101  docker rm mysql_container
+  102  echo "removing -> qmc_phpmyadmin"
+  103  docker rm qmc_phpmyadmin
+  104  echo "EO: Removing QMC containers "
+  105  # DONE -> .htaccess files
+  106  echo ""
+  107  echo "Doing a system prune of unused stuff {not a whole docker prune...only minor one}"
+  108  yes Y |docker system prune
+  109  echo "[Done -> docker system prune ]"
+  110  echo ""
+  111  echo -e "Press \e[1m[enter] \e[0mto EXIT the QMC_stopper"
+  112  read -p ''
+  113  #-----------------------------------------------------------#
+  114  # FileName: QMC_autobuilder.sh                              #
+  115  # Desc: Should allow running qmc project with one click     #
+  116  # Author: Slavko V.                                         #
+  117  # Date: 2021.01.08                                          #
+  118  #-|-|-|-|-|-|-|-|-|-|-|-|-|-|-|-|-|-|-|-|-|-|-|-|-|-|-|-|-|-#
+  119  echo -e '< \e[1mWelcome to QMC autobuilder\e[0m >'
+  120  echo ''
+  121  echo -e '\e[2mDescription\e[22m  : This will clone repositories required for running QMC containers.'
+  122  echo -e '\e[2mRequirements\e[22m : docker, composer [in your local os] and missing_files folder'
+  123  echo ''
+  124  echo -e "Press \e[1m[enter] \e[0mto BEGIN the setup"
+  125  read -p ''
+  126  declare -i errorNumb=0
+  127  errMSG='ErrorMSG List: [ '
+  128  echo  
+  129  # << SO 1.Check Missing files section SO >> #
+  130  echo 'Looking for a missing files'
+  131  # << SO 1.1.looking for folder named 'missing_files' SO >> #
+  132  if [ -d "missing_files" ] ; then     echo "Directory < missing_files > exists." ; else     errorNumb=errorNumb+1;     errMSG=$errMSG"|> Error: Directory < missing_files > does not exists. <"; fi
+  133  # << EO 1.1. looking for folder named 'missing_files' EO >> #
+  134  #
+  135  # << SO 1.2. Looking for config.php file SO >> #
+  136  FILE=missing_files/config.php
+  137  if [ -f "$FILE" ]; then     echo "$FILE exists."; else      errorNumb=errorNumb+1;     errMSG=$errMSG"|> ERROR: File $FILE does not exist. <|"; fi
+  138  # << EO 1.2. Looking for config.php file EO >> #
+  139  #
+  140  # << SO 1.3. Looking for database.php file SO >> #
+  141  FILE=missing_files/database.php
+  142  if [ -f "$FILE" ]; then     echo "$FILE exists."; else      errorNumb=errorNumb+1;     errMSG=$errMSG"|> ERROR: File $FILE does not exist. <|"; fi
+  143  # << EO 1.3. Looking for database.php file EO >> #
+  144  #
+  145  # << SO 1.4. Looking for phinx.yml file SO >> #
+  146  FILE=missing_files/phinx.yml
+  147  if [ -f "$FILE" ]; then     echo "$FILE exists."; else      errorNumb=errorNumb+1;     errMSG=$errMSG"|> ERROR: File $FILE does not exist. <|"; fi
+  148  # << EO 1.4. Looking for phinx.yml file EO >> #
+  149  #
+  150  # << SO 1.5. Looking for instacraft.sql file SO >> #
+  151  FILE=missing_files/instacraft.sql
+  152  if [ -f "$FILE" ]; then     echo "$FILE exists."; else      errorNumb=errorNumb+1;     errMSG=$errMSG"|> ERROR: File $FILE does not exist. <|"; fi
+  153  # << EO 1.5. Looking for instacraft.sql file EO >> #
+  154  #
+  155  # << SO 1.5. Looking for htaccess file SO >> #
+  156  FILE=missing_files/htaccess
+  157  if [ -f "$FILE" ]; then     echo "$FILE exists."; else      errorNumb=errorNumb+1;     errMSG=$errMSG"|> ERROR: File $FILE does not exist. <|"; fi
+  158  # << EO 1.5. Looking for htaccess file EO >> #
+  159  # << EOmissing files sectionEO >> #
+  160  echo
+  161  # << SO error check if run build SO >> #
+  162  #read -p "Press [enter] to CONTINUE the setup"    
+  163  if [ "$errorNumb" -gt 0 ]; then         errMSG=$errMSG" ]";     echo 'Number of Errors: '$errorNumb;     echo "$errMSG"; else      echo '';     read -p "Press [enter] to CONTINUE the setup";     echo "[Build process started....";     echo "."     echo "START: Cloning Instacraft-Med repo.";     git clone https://bitbucket.org/bloomcraft/instacraft-med.git;     echo "DONE: Cloning Instacraft-Med repo."     echo ""     echo "START: Cloning Instacraft repo...";     git clone https://bitbucket.org/bloomcraft/instacraft.git;     echo "DONE: cloning Instacraft repo."     echo ""     echo "START: Database make folder and copy over";     cd instacraft-med ;     mkdir '.database';     cd ..;     cp missing_files/instacraft.sql instacraft-med/.database/instacraft.sql;     echo "DONE: Database make folder and copy over"     echo ""     echo "START: Create env files";     cp instacraft-med/.env.development instacraft-med/.env;     cp instacraft/.env.development instacraft/.env;     echo "DONE: Create env files"     echo ""     echo "START: Create .htaccess files";     cp missing_files/htaccess instacraft-med/.htaccess;     cp missing_files/htaccess instacraft/.htaccess;     echo "DONE: Create .htaccess files"     echo ""     echo "START: Create phinx.yml files";     cp missing_files/phinx.yml instacraft-med/phinx.yml;     echo "DONE: Create phinx.yml files"     echo ""     echo "START: Adding missing PHP files";     cp missing_files/config.php instacraft-med/application/config/config.php;     cp missing_files/database.php instacraft-med/application/config/database.php;     echo "DONE: Adding missing PHP files"     echo ""     echo "START: Install Composer [both dirs]";     cd instacraft;     composer install;     cd ..;     cd instacraft-med;     composer install;     docker-compose up --build -d;     echo -e "RESTART: mysql_container [reason: won't connect to rest of system before restart <slavko_v>]";     docker restart mysql_container;     echo -e "DONE: [restart -> mysql_container]";     winpty docker exec -it qmc_container bash -c "vendor/bin/phinx migrate -e testing && vendor/bin/phinx seed:run -e testing && exit ";     cd ..;     cd instacraft;     docker-compose up --build -d;     winpty docker exec -it icc_container bash -c "vendor/bin/phinx migrate -e testing && vendor/bin/phinx seed:run -e testing && exit ";     winpty docker exec -it qmc_container bash -c "vendor/bin/phinx migrate -e testing && vendor/bin/phinx seed:run -e testing && exit ";     echo "DONE: Install Composer [both dirs]"     echo ".";     echo "....and report being done here.]"
+  164  fi  # << EO error check if run build EO >> #
+  165  echo '' 
+  166  read -p "Press [enter] to FINISH/EXIT the setup"
+  167   testing && exit "
+  168      cd ..
+  169      cd instacraft
+  170      docker-compose up --build -d
+  171      winpty docker exec -it icc_container bash -c "vendor/bin/phinx migrate -e testing && vendor/bin/phinx seed:run -e testing && exit "
+  172      winpty docker exec -it qmc_container bash -c "vendor/bin/phinx migrate -e testing && vendor/bin/phinx seed:run -e testing && exit "
+  173      echo "DONE: Install Composer [both dirs]"
+  174      # DONE -> Install Composer in both directories
+  175      echo "."
+  176      echo "....and report being done here.]"
+  177  fi  # << EO error check if run build EO >> #
+  178  echo '' 
+  179  read -p "Press [enter] to FINISH/EXIT the setup"
+  180  #-----------------------------------------------------------#
+  181  # FileName: QMC_auto[stop^clean].sh                         #
+  182  # Desc: Should allow stopping containers in one click       #
+  183  # Author: Slavko V.                                         #
+  184  # Date: 2021.01.08                                          #
+  185  #-|-|-|-|-|-|-|-|-|-|-|-|-|-|-|-|-|-|-|-|-|-|-|-|-|-|-|-|-|-#
+  186  echo -e '< \e[1mWelcome to QMC auto[stop^clean]\e[0m >'
+  187  echo ''
+  188  echo -e '\e[2mDescription\e[22m  : This will stop and remove containers.'
+  189  echo ""
+  190  echo -e "Press \e[1m[enter] \e[0mto BEGIN the setup"
+  191  read -p ''
+  192  # Create .htaccess files
+  193  echo "SO: Stopping QMC project containers "
+  194  echo "stopping -> icc_container"
+  195  docker stop icc_container
+  196  echo "stopping -> qmc_container"
+  197  docker stop qmc_container
+  198  echo "stopping -> mysql_container"
+  199  docker stop mysql_container
+  200  echo "stopping -> qmc_phpmyadmin"
+  201  docker stop qmc_phpmyadmin
+  202  echo "EO: Stopping QMC project containers "
+  203  echo ""
+  204  echo "SO: Removing QMC project containers "
+  205  echo "removing -> icc_container"
+  206  docker rm icc_container
+  207  echo "removing -> qmc_container"
+  208  docker rm qmc_container
+  209  echo "removing -> mysql_container"
+  210  docker rm mysql_container
+  211  echo "removing -> qmc_phpmyadmin"
+  212  docker rm qmc_phpmyadmin
+  213  echo "EO: Removing QMC containers "
+  214  # DONE -> .htaccess files
+  215  echo ""
+  216  echo "Doing a system prune of unused stuff {not a whole docker prune...only minor one}"
+  217  yes Y |docker system prune
+  218  echo "[Done -> docker system prune ]"
+  219  echo ""
+  220  echo -e "Press \e[1m[enter] \e[0mto EXIT the QMC_stopper"
+  221  read -p ''
+  222  #-----------------------------------------------------------#
+  223  # FileName: QMC_autobuilder.sh                              #
+  224  # Desc: Should allow running qmc project with one click     #
+  225  # Author: Slavko V.                                         #
+  226  # Date: 2021.01.08                                          #
+  227  #-|-|-|-|-|-|-|-|-|-|-|-|-|-|-|-|-|-|-|-|-|-|-|-|-|-|-|-|-|-#
+  228  echo -e '< \e[1mWelcome to QMC autobuilder\e[0m >'
+  229  echo ''
+  230  echo -e '\e[2mDescription\e[22m  : This will clone repositories required for running QMC containers.'
+  231  echo -e '\e[2mRequirements\e[22m : docker, composer [in your local os] and missing_files folder'
+  232  echo ''
+  233  echo -e "Press \e[1m[enter] \e[0mto BEGIN the setup"
+  234  read -p ''
+  235  declare -i errorNumb=0
+  236  errMSG='ErrorMSG List: [ '
+  237  echo  
+  238  # << SO 1.Check Missing files section SO >> #
+  239  echo 'Looking for a missing files'
+  240  # << SO 1.1.looking for folder named 'missing_files' SO >> #
+  241  if [ -d "missing_files" ] ; then     echo -e "[ \e[32mSuccess\e[39m: Directory < missing_files > exists. ]"; else     errorNumb=errorNumb+1;     errMSG=$errMSG"|> ERROR: Directory < missing_files > does not exists. <";     echo -e "[ \033[31mERROR\e[0m Directory < missing_files > does not exists. ]"; fi
+  242  # << EO 1.1. looking for folder named 'missing_files' EO >> #
+  243  #
+  244  # << SO 1.2. Looking for config.php file SO >> #
+  245  FILE=missing_files/config.php
+  246  if [ -f "$FILE" ]; then     echo -e "[ \e[32mSuccess\e[39m: File < $FILE > exists. ]"; else      errorNumb=errorNumb+1;     errMSG=$errMSG"|> ERROR: File $FILE does not exist. <|";     echo -e "[ \033[31mERROR\e[0m File $FILE does not exist. ]"; fi
+  247  # << EO 1.2. Looking for config.php file EO >> #
+  248  #
+  249  # << SO 1.3. Looking for database.php file SO >> #
+  250  FILE=missing_files/database.php
+  251  if [ -f "$FILE" ]; then     echo -e "[ \e[32mSuccess\e[39m: File < $FILE > exists. ]"; else      errorNumb=errorNumb+1;     errMSG=$errMSG"|> ERROR: File $FILE does not exist. <|";     echo -e "[ \033[31mERROR\e[0m File $FILE does not exist. ]"; fi
+  252  # << EO 1.3. Looking for database.php file EO >> #
+  253  #
+  254  # << SO 1.4. Looking for phinx.yml file SO >> #
+  255  FILE=missing_files/phinx.yml
+  256  if [ -f "$FILE" ]; then     echo -e "[ \e[32mSuccess\e[39m: File < $FILE > exists. ]"; else      errorNumb=errorNumb+1;     errMSG=$errMSG"|> ERROR: File $FILE does not exist. <|";     echo -e "[ \033[31mERROR\e[0m File $FILE does not exist. ]"; fi
+  257  # << EO 1.4. Looking for phinx.yml file EO >> #
+  258  #
+  259  # << SO 1.5. Looking for instacraft.sql file SO >> #
+  260  FILE=missing_files/instacraft.sql
+  261  if [ -f "$FILE" ]; then     echo -e "[ \e[32mSuccess\e[39m: File < $FILE > exists. ]"; else      errorNumb=errorNumb+1;     errMSG=$errMSG"|> ERROR: File $FILE does not exist. <|";     echo -e "[ \033[31mERROR\e[0m File $FILE does not exist. ]"; fi
+  262  # << EO 1.5. Looking for instacraft.sql file EO >> #
+  263  #
+  264  # << SO 1.5. Looking for htaccess file SO >> #
+  265  FILE=missing_files/htaccess
+  266  if [ -f "$FILE" ]; then     echo -e "[ \e[32mSuccess\e[39m: File < $FILE > exists. ]"; else      errorNumb=errorNumb+1;     errMSG=$errMSG"|> ERROR: File $FILE does not exist. <|";     echo -e "[ \033[31mERROR\e[0m File $FILE does not exist. ]"; fi
+  267  # << EO 1.5. Looking for htaccess file EO >> #
+  268  # << EOmissing files sectionEO >> #
+  269  echo
+  270  # << SO error check if run build SO >> #
+  271  #read -p "Press [enter] to CONTINUE the setup"    
+  272  if [ "$errorNumb" -gt 0 ]; then         errMSG=$errMSG" ]";     echo 'Number of Errors: '$errorNumb;     echo "$errMSG"; else      echo "[ START: Developer Setup Process ]"     echo "START: Cloning Instacraft-Med repo.";     git clone https://bitbucket.org/bloomcraft/instacraft-med.git;     echo "DONE: Cloning Instacraft-Med repo."     echo ""     echo "START: Cloning Instacraft repo...";     git clone https://bitbucket.org/bloomcraft/instacraft.git;     echo "DONE: cloning Instacraft repo."     echo ""     echo "START: Database make folder and copy over";     cd instacraft-med ;     mkdir '.database';     cd ..;     cp missing_files/instacraft.sql instacraft-med/.database/instacraft.sql;     echo "DONE: Database make folder and copy over"     echo ""     echo "START: Create env files";     cp instacraft-med/.env.development instacraft-med/.env;     cp instacraft/.env.development instacraft/.env;     echo "DONE: Create env files"     echo ""     echo "START: Create .htaccess files";     cp missing_files/htaccess instacraft-med/.htaccess;     cp missing_files/htaccess instacraft/.htaccess;     echo "DONE: Create .htaccess files"     echo ""     echo "START: Create phinx.yml files";     cp missing_files/phinx.yml instacraft-med/phinx.yml;     echo "DONE: Create phinx.yml files"     echo ""     echo "START: Adding missing PHP files";     cp missing_files/config.php instacraft-med/application/config/config.php;     cp missing_files/database.php instacraft-med/application/config/database.php;     echo "DONE: Adding missing PHP files"     echo ""     echo "START: Install Composer [both dirs]";     cd instacraft;     composer install;     cd ..;     cd instacraft-med;     composer install;     docker-compose up --build -d;     echo -e "RESTART: mysql_container [reason: won't connect to rest of system before restart <slavko_v>]";     docker restart mysql_container;     echo -e "DONE: [restart -> mysql_container]";     winpty docker exec -it qmc_container bash -c "vendor/bin/phinx migrate -e testing && vendor/bin/phinx seed:run -e testing && exit ";     cd ..;     cd instacraft;     docker-compose up --build -d;     winpty docker exec -it icc_container bash -c "vendor/bin/phinx migrate -e testing && vendor/bin/phinx seed:run -e testing && exit ";     winpty docker exec -it qmc_container bash -c "vendor/bin/phinx migrate -e testing && vendor/bin/phinx seed:run -e testing && exit ";     echo "DONE: Install Composer [both dirs]"     echo "";     echo "[ DONE: Developer Setup Process ]"
+  273  fi  # << EO error check if run build EO >> #
+  274  echo '' 
+  275  read -p "Press [enter] to FINISH/EXIT the setup"
+  276  git clone https://eee-miki@bitbucket.org/bloomcraft/qmc_dev_setup.git
+  277  cd qmc_dev_setup/
+  278  bash QMC_autobuilder.sh 
+  279  docker ps -a
+  280  git log
+  281  git status
+  282  git log
+  283  docker ps -a
+  284  docker ps -a
+  285  git status
+  286  git add .
+  287  git commit -m 'autobuilder tweaks....'
+  288  git log
+  289  docker ps -a 
+  290  docker stop -a
+  291  docker stop $(docker ps -aq)
+  292  docker system prune -a
+  293  git status
+  294  git status
+  295  git add .
+  296  git commit -m 'gitignore update...added a local folder with my original missing_files that I got from jeff'
+  297  git push origin master
+  298  docker ps -a
+  299  #-----------------------------------------------------------#
+  300  # FileName: QMC_auto[stop^clean].sh                         #
+  301  # Desc: Should allow stopping containers in one click       #
+  302  # Author: Slavko V.                                         #
+  303  # Date: 2021.01.08                                          #
+  304  #-|-|-|-|-|-|-|-|-|-|-|-|-|-|-|-|-|-|-|-|-|-|-|-|-|-|-|-|-|-#
+  305  echo -e '< \e[1mWelcome to QMC auto[stop^clean]\e[0m >'
+  306  echo ''
+  307  echo -e '\e[2mDescription\e[22m  : This will stop and remove containers.'
+  308  echo ""
+  309  echo -e "Press \e[1m[enter] \e[0mto BEGIN the setup"
+  310  read -p ''
+  311  # Create .htaccess files
+  312  echo "SO: Stopping QMC project containers "
+  313  echo "stopping -> icc_container"
+  314  docker stop icc_container
+  315  echo "stopping -> qmc_container"
+  316  docker stop qmc_container
+  317  echo "stopping -> mysql_container"
+  318  docker stop mysql_container
+  319  echo "stopping -> qmc_phpmyadmin"
+  320  docker stop qmc_phpmyadmin
+  321  echo "EO: Stopping QMC project containers "
+  322  echo ""
+  323  echo "SO: Removing QMC project containers "
+  324  echo "removing -> icc_container"
+  325  docker rm icc_container
+  326  echo "removing -> qmc_container"
+  327  docker rm qmc_container
+  328  echo "removing -> mysql_container"
+  329  docker rm mysql_container
+  330  echo "removing -> qmc_phpmyadmin"
+  331  docker rm qmc_phpmyadmin
+  332  echo "EO: Removing QMC containers "
+  333  # DONE -> .htaccess files
+  334  echo ""
+  335  echo "Doing a system prune of unused stuff {not a whole docker prune...only minor one}"
+  336  yes Y |docker system prune
+  337  echo "[Done -> docker system prune ]"
+  338  echo ""
+  339  echo -e "Press \e[1m[enter] \e[0mto EXIT the QMC_stopper"
+  340  read -p ''
+  341  #-----------------------------------------------------------#
+  342  # FileName: QMC_autobuilder.sh                              #
+  343  # Desc: Should allow running qmc project with one click     #
+  344  # Author: Slavko V.                                         #
+  345  # Date: 2021.01.08                                          #
+  346  #-|-|-|-|-|-|-|-|-|-|-|-|-|-|-|-|-|-|-|-|-|-|-|-|-|-|-|-|-|-#
+  347  echo -e '< \e[1mWelcome to QMC autobuilder\e[0m >'
+  348  echo ''
+  349  echo -e '\e[2mDescription\e[22m  : This will clone repositories required for running QMC containers.'
+  350  echo -e '\e[2mRequirements\e[22m : docker, composer [in your local os] and missing_files folder'
+  351  echo ''
+  352  echo -e "Press \e[1m[enter] \e[0mto BEGIN the setup"
+  353  read -p ''
+  354  declare -i errorNumb=0
+  355  errMSG='ErrorMSG List: [ '
+  356  echo  
+  357  # << SO 1.Check Missing files section SO >> #
+  358  echo 'Looking for a missing files'
+  359  # << SO 1.1.looking for folder named 'missing_files' SO >> #
+  360  if [ -d "missing_files" ] ; then     echo -e "[ \e[32mSuccess\e[39m: Directory < missing_files > exists. ]"; else     errorNumb=errorNumb+1;     errMSG=$errMSG"|> ERROR: Directory < missing_files > does not exists. <";     echo -e "[ \033[31mERROR\e[0m Directory < missing_files > does not exists. ]"; fi
+  361  # << EO 1.1. looking for folder named 'missing_files' EO >> #
+  362  #
+  363  # << SO 1.2. Looking for config.php file SO >> #
+  364  FILE=missing_files/config.php
+  365  if [ -f "$FILE" ]; then     echo -e "[ \e[32mSuccess\e[39m: File < $FILE > exists. ]"; else      errorNumb=errorNumb+1;     errMSG=$errMSG"|> ERROR: File $FILE does not exist. <|";     echo -e "[ \033[31mERROR\e[0m File $FILE does not exist. ]"; fi
+  366  # << EO 1.2. Looking for config.php file EO >> #
+  367  #
+  368  # << SO 1.3. Looking for database.php file SO >> #
+  369  FILE=missing_files/database.php
+  370  if [ -f "$FILE" ]; then     echo -e "[ \e[32mSuccess\e[39m: File < $FILE > exists. ]"; else      errorNumb=errorNumb+1;     errMSG=$errMSG"|> ERROR: File $FILE does not exist. <|";     echo -e "[ \033[31mERROR\e[0m File $FILE does not exist. ]"; fi
+  371  # << EO 1.3. Looking for database.php file EO >> #
+  372  #
+  373  # << SO 1.4. Looking for phinx.yml file SO >> #
+  374  FILE=missing_files/phinx.yml
+  375  if [ -f "$FILE" ]; then     echo -e "[ \e[32mSuccess\e[39m: File < $FILE > exists. ]"; else      errorNumb=errorNumb+1;     errMSG=$errMSG"|> ERROR: File $FILE does not exist. <|";     echo -e "[ \033[31mERROR\e[0m File $FILE does not exist. ]"; fi
+  376  # << EO 1.4. Looking for phinx.yml file EO >> #
+  377  #
+  378  # << SO 1.5. Looking for instacraft.sql file SO >> #
+  379  FILE=missing_files/instacraft.sql
+  380  if [ -f "$FILE" ]; then     echo -e "[ \e[32mSuccess\e[39m: File < $FILE > exists. ]"; else      errorNumb=errorNumb+1;     errMSG=$errMSG"|> ERROR: File $FILE does not exist. <|";     echo -e "[ \033[31mERROR\e[0m File $FILE does not exist. ]"; fi
+  381  # << EO 1.5. Looking for instacraft.sql file EO >> #
+  382  #
+  383  # << SO 1.5. Looking for htaccess file SO >> #
+  384  FILE=missing_files/htaccess
+  385  if [ -f "$FILE" ]; then     echo -e "[ \e[32mSuccess\e[39m: File < $FILE > exists. ]"; else      errorNumb=errorNumb+1;     errMSG=$errMSG"|> ERROR: File $FILE does not exist. <|";     echo -e "[ \033[31mERROR\e[0m File $FILE does not exist. ]"; fi
+  386  # << EO 1.5. Looking for htaccess file EO >> #
+  387  # << EOmissing files sectionEO >> #
+  388  echo
+  389  # << SO error check if run build SO >> #
+  390  #read -p "Press [enter] to CONTINUE the setup"    
+  391  if [ "$errorNumb" -gt 0 ]; then         errMSG=$errMSG" ]";     echo 'Number of Errors: '$errorNumb;     echo "$errMSG"; else      echo "[ START: Developer Setup Process ]"     echo "START: Cloning Instacraft-Med repo.";     git clone https://bitbucket.org/bloomcraft/instacraft-med.git;     echo "DONE: Cloning Instacraft-Med repo."     echo ""     echo "START: Cloning Instacraft repo...";     git clone https://bitbucket.org/bloomcraft/instacraft.git;     echo "DONE: cloning Instacraft repo."     echo ""     echo "START: Database make folder and copy over";     cd instacraft-med ;     mkdir '.database';     cd ..;     cp missing_files/instacraft.sql instacraft-med/.database/instacraft.sql;     echo "DONE: Database make folder and copy over"     echo ""     echo "START: Create env files";     cp instacraft-med/.env.development instacraft-med/.env;     cp instacraft/.env.development instacraft/.env;     echo "DONE: Create env files"     echo ""     echo "START: Create .htaccess files";     cp missing_files/htaccess instacraft-med/.htaccess;     cp missing_files/htaccess instacraft/.htaccess;     echo "DONE: Create .htaccess files"     echo ""     echo "START: Create phinx.yml files";     cp missing_files/phinx.yml instacraft-med/phinx.yml;     echo "DONE: Create phinx.yml files"     echo ""     echo "START: Adding missing PHP files";     cp missing_files/config.php instacraft-med/application/config/config.php;     cp missing_files/database.php instacraft-med/application/config/database.php;     echo "DONE: Adding missing PHP files"     echo ""     echo "START: Install Composer [both dirs]";     cd instacraft;     composer install;     cd ..;     cd instacraft-med;     composer install;     docker-compose up --build -d;     echo -e "RESTART: mysql_container [reason: won't connect to rest of system before restart <slavko_v>]";     docker restart mysql_container;     echo -e "DONE: [restart -> mysql_container]";     winpty docker exec -it qmc_container bash -c "vendor/bin/phinx migrate -e testing && vendor/bin/phinx seed:run -e testing && exit ";     cd ..;     cd instacraft;     docker-compose up --build -d;     winpty docker exec -it icc_container bash -c "vendor/bin/phinx migrate -e testing && vendor/bin/phinx seed:run -e testing && exit ";     winpty docker exec -it qmc_container bash -c "vendor/bin/phinx migrate -e testing && vendor/bin/phinx seed:run -e testing && exit ";     echo "DONE: Install Composer [both dirs]"     echo "";     echo "[ DONE: Developer Setup Process ]"
+  392  fi  # << EO error check if run build EO >> #
+  393  #-----------------------------------------------------------#
+  394  # FileName: QMC_autobuilder.sh                              #
+  395  # Desc: Should allow running qmc project with one click     #
+  396  # Author: Slavko V.                                         #
+  397  # Date: 2021.01.08                                          #
+  398  #-|-|-|-|-|-|-|-|-|-|-|-|-|-|-|-|-|-|-|-|-|-|-|-|-|-|-|-|-|-#
+  399  echo -e '< \e[1mWelcome to QMC autobuilder\e[0m >'
+  400  echo ''
+  401  echo -e '\e[2mDescription\e[22m  : This will clone repositories required for running QMC containers.'
+  402  echo -e '\e[2mRequirements\e[22m : docker, composer [in your local os] and missing_files folder'
+  403  echo ''
+  404  echo -e "Press \e[1m[enter] \e[0mto BEGIN the setup"
+  405  read -p ''
+  406  declare -i errorNumb=0
+  407  errMSG='ErrorMSG List: [ '
+  408  echo  
+  409  # << SO 1.Check Missing files section SO >> #
+  410  echo 'Looking for a missing files'
+  411  # << SO 1.1.looking for folder named 'missing_files' SO >> #
+  412  if [ -d "missing_files" ] ; then     echo -e "[ \e[32mSuccess\e[39m: Directory < missing_files > exists. ]"; else     errorNumb=errorNumb+1;     errMSG=$errMSG"|> ERROR: Directory < missing_files > does not exists. <";     echo -e "[ \033[31mERROR\e[0m Directory < missing_files > does not exists. ]"; fi
+  413  # << EO 1.1. looking for folder named 'missing_files' EO >> #
+  414  #
+  415  # << SO 1.2. Looking for config.php file SO >> #
+  416  FILE=missing_files/config.php
+  417  if [ -f "$FILE" ]; then     echo -e "[ \e[32mSuccess\e[39m: File < $FILE > exists. ]"; else      errorNumb=errorNumb+1;     errMSG=$errMSG"|> ERROR: File $FILE does not exist. <|";     echo -e "[ \033[31mERROR\e[0m File $FILE does not exist. ]"; fi
+  418  # << EO 1.2. Looking for config.php file EO >> #
+  419  #
+  420  # << SO 1.3. Looking for database.php file SO >> #
+  421  FILE=missing_files/database.php
+  422  if [ -f "$FILE" ]; then     echo -e "[ \e[32mSuccess\e[39m: File < $FILE > exists. ]"; else      errorNumb=errorNumb+1;     errMSG=$errMSG"|> ERROR: File $FILE does not exist. <|";     echo -e "[ \033[31mERROR\e[0m File $FILE does not exist. ]"; fi
+  423  # << EO 1.3. Looking for database.php file EO >> #
+  424  #
+  425  # << SO 1.4. Looking for phinx.yml file SO >> #
+  426  FILE=missing_files/phinx.yml
+  427  if [ -f "$FILE" ]; then     echo -e "[ \e[32mSuccess\e[39m: File < $FILE > exists. ]"; else      errorNumb=errorNumb+1;     errMSG=$errMSG"|> ERROR: File $FILE does not exist. <|";     echo -e "[ \033[31mERROR\e[0m File $FILE does not exist. ]"; fi
+  428  # << EO 1.4. Looking for phinx.yml file EO >> #
+  429  #
+  430  # << SO 1.5. Looking for instacraft.sql file SO >> #
+  431  FILE=missing_files/instacraft.sql
+  432  if [ -f "$FILE" ]; then     echo -e "[ \e[32mSuccess\e[39m: File < $FILE > exists. ]"; else      errorNumb=errorNumb+1;     errMSG=$errMSG"|> ERROR: File $FILE does not exist. <|";     echo -e "[ \033[31mERROR\e[0m File $FILE does not exist. ]"; fi
+  433  # << EO 1.5. Looking for instacraft.sql file EO >> #
+  434  #
+  435  # << SO 1.5. Looking for htaccess file SO >> #
+  436  FILE=missing_files/htaccess
+  437  if [ -f "$FILE" ]; then     echo -e "[ \e[32mSuccess\e[39m: File < $FILE > exists. ]"; else      errorNumb=errorNumb+1;     errMSG=$errMSG"|> ERROR: File $FILE does not exist. <|";     echo -e "[ \033[31mERROR\e[0m File $FILE does not exist. ]"; fi
+  438  # << EO 1.5. Looking for htaccess file EO >> #
+  439  # << EOmissing files sectionEO >> #
+  440  echo
+  441  # << SO error check if run build SO >> #
+  442  #read -p "Press [enter] to CONTINUE the setup"    
+  443  if [ "$errorNumb" -gt 0 ]; then         errMSG=$errMSG" ]";     echo 'Number of Errors: '$errorNumb;     echo "$errMSG"; else      echo "[ START: Developer Setup Process ]"     echo "START: Cloning Instacraft-Med repo.";     git clone https://bitbucket.org/bloomcraft/instacraft-med.git;     echo "DONE: Cloning Instacraft-Med repo."     echo ""     echo "START: Cloning Instacraft repo...";     git clone https://bitbucket.org/bloomcraft/instacraft.git;     echo "DONE: cloning Instacraft repo."     echo ""     echo "START: Database make folder and copy over";     cd instacraft-med ;     mkdir '.database';     cd ..;     cp missing_files/instacraft.sql instacraft-med/.database/instacraft.sql;     echo "DONE: Database make folder and copy over"     echo ""     echo "START: Create env files";     cp instacraft-med/.env.development instacraft-med/.env;     cp instacraft/.env.development instacraft/.env;     echo "DONE: Create env files"     echo ""     echo "START: Create .htaccess files";     cp missing_files/htaccess instacraft-med/.htaccess;     cp missing_files/htaccess instacraft/.htaccess;     echo "DONE: Create .htaccess files"     echo ""     echo "START: Create phinx.yml files";     cp missing_files/phinx.yml instacraft-med/phinx.yml;     echo "DONE: Create phinx.yml files"     echo ""     echo "START: Adding missing PHP files";     cp missing_files/config.php instacraft-med/application/config/config.php;     cp missing_files/database.php instacraft-med/application/config/database.php;     echo "DONE: Adding missing PHP files"     echo ""     echo "START: Install Composer [both dirs]";     cd instacraft;     composer install;     cd ..;     cd instacraft-med;     composer install;     docker-compose up --build -d;     echo -e "RESTART: mysql_container [reason: won't connect to rest of system before restart <slavko_v>]";     docker restart mysql_container;     echo -e "DONE: [restart -> mysql_container]";     winpty docker exec -it qmc_container bash -c "vendor/bin/phinx migrate -e testing && vendor/bin/phinx seed:run -e testing && exit ";     cd ..;     cd instacraft;     docker-compose up --build -d;     winpty docker exec -it icc_container bash -c "vendor/bin/phinx migrate -e testing && vendor/bin/phinx seed:run -e testing && exit ";     winpty docker exec -it qmc_container bash -c "vendor/bin/phinx migrate -e testing && vendor/bin/phinx seed:run -e testing && exit ";     echo "DONE: Install Composer [both dirs]"     echo "";     echo "[ DONE: Developer Setup Process ]"
+  444  fi  # << EO error check if run build EO >> #
+  445  #-----------------------------------------------------------#
+  446  # FileName: QMC_auto[stop^clean].sh                         #
+  447  # Desc: Should allow stopping containers in one click       #
+  448  # Author: Slavko V.                                         #
+  449  # Date: 2021.01.08                                          #
+  450  #-|-|-|-|-|-|-|-|-|-|-|-|-|-|-|-|-|-|-|-|-|-|-|-|-|-|-|-|-|-#
+  451  echo -e '< \e[1mWelcome to QMC auto[stop^clean]\e[0m >'
+  452  echo ''
+  453  echo -e '\e[2mDescription\e[22m  : This will stop and remove containers.'
+  454  echo ""
+  455  echo -e "Press \e[1m[enter] \e[0mto BEGIN the setup"
+  456  read -p ''
+  457  # Create .htaccess files
+  458  echo "SO: Stopping QMC project containers "
+  459  echo "stopping -> icc_container"
+  460  docker stop icc_container
+  461  echo "stopping -> qmc_container"
+  462  docker stop qmc_container
+  463  echo "stopping -> mysql_container"
+  464  docker stop mysql_container
+  465  echo "stopping -> qmc_phpmyadmin"
+  466  docker stop qmc_phpmyadmin
+  467  echo "EO: Stopping QMC project containers "
+  468  echo ""
+  469  echo "SO: Removing QMC project containers "
+  470  echo "removing -> icc_container"
+  471  docker rm icc_container
+  472  echo "removing -> qmc_container"
+  473  docker rm qmc_container
+  474  echo "removing -> mysql_container"
+  475  docker rm mysql_container
+  476  echo "removing -> qmc_phpmyadmin"
+  477  docker rm qmc_phpmyadmin
+  478  echo "EO: Removing QMC containers "
+  479  # DONE -> .htaccess files
+  480  echo ""
+  481  echo "Doing a system prune of unused stuff {not a whole docker prune...only minor one}"
+  482  yes Y |docker system prune
+  483  echo "[Done -> docker system prune ]"
+  484  echo ""
+  485  echo -e "Press \e[1m[enter] \e[0mto EXIT the QMC_stopper"
+  486  read -p ''
+  487  #-----------------------------------------------------------#
+  488  # FileName: QMC_autobuilder.sh                              #
+  489  # Desc: Should allow running qmc project with one click     #
+  490  # Author: Slavko V.                                         #
+  491  # Date: 2021.01.08                                          #
+  492  #-|-|-|-|-|-|-|-|-|-|-|-|-|-|-|-|-|-|-|-|-|-|-|-|-|-|-|-|-|-#
+  493  echo -e '< \e[1mWelcome to QMC autobuilder\e[0m >'
+  494  echo ''
+  495  echo -e '\e[2mDescription\e[22m  : This will clone repositories required for running QMC containers.'
+  496  echo -e '\e[2mRequirements\e[22m : docker, composer [in your local os] and missing_files folder'
+  497  echo ''
+  498  echo -e "Press \e[1m[enter] \e[0mto BEGIN the setup"
+  499  read -p ''
+  500  bash QMC_auto\[stop\^clean\].sh 
+  501  bash QMC_auto\[stop\^clean\].sh 
+  502  bash QMC_auto\[stop\^clean\].sh 
+  503  bash QMC_auto\[stop\^clean\].sh 
+  504  bash QMC_auto\[stop\^clean\].sh 
+  505  bash QMC_auto\[stop\^clean\].sh 
+  506  now=$(date +'%Y-%m-%d@%H.%M.%S') && username=$(git config --global user.email) && history > 'included_files/logs/'$now'_'$username'_hist_cleaner'.txt

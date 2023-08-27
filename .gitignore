@@ -1,0 +1,15 @@
+instacraft/
+instacraft-med/
+missing_files/config.php
+missing_files/database.php
+missing_files/instacraft.sql
+missing_files/htaccess
+missing_files/phinx.yml
+missing_files/config.zip
+missing_files/database.zip
+missing_files/instacraft.zip
+missing_files/htaccess.zip
+missing_files/phinx.zip
+.missing_files*
+original_QMC
+original_QMC_med
