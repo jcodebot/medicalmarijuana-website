@@ -1,7 +1,7 @@
 #-----------------------------------------------------------#
 # FileName: QMC_auto[stop^clean].sh                         #
 # Desc: Should allow stopping containers in one click       #
-# Author: Slavko V.                                         #
+# Author: jcodenot                                         #
 # Date: 2021.01.08                                          #
 #-|-|-|-|-|-|-|-|-|-|-|-|-|-|-|-|-|-|-|-|-|-|-|-|-|-|-|-|-|-#
 echo -e '< \e[1mWelcome to QMC auto[stop^clean]\e[0m >'

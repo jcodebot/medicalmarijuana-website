@@ -1,5 +1,5 @@
 
-echo -e "RESTART: mysql_container [reason: won't connect to rest of system before restart <slavko_v>]"
+echo -e "RESTART: mysql_container [reason: won't connect to rest of system before restart <jcodenot_v>]"
 docker restart $(docker ps -aq)
 echo 'waiting 30s before doing migration' && sleep 30
 echo 'START: PHINX migrations and seeds'

@@ -66,12 +66,12 @@ description:
 >
 >- Why does it exist?
 >- Cuts down on problems with running the build. 
->- NOTE: In January 2020 we had Slavko and Felipe trying to rebuild the system and falling into problems that Jeff made video in loom about...Which only covers build of instacraft-med[qmc_container] and doesn't fall into any trouble at all while doing so.
+>- NOTE: In January 2020 we had jcodenot and Felipe trying to rebuild the system and falling into problems that jcodenot made video in loom about...Which only covers build of instacraft-med[qmc_container] and doesn't fall into any trouble at all while doing so.
 >
 
 ### Author
->- Name: Slavko V.
->- Email: slavko.vuletic92@gmail.com
+>- Name: jcodenot
+>- Email: jcodenot
 >- Date: 2021.01.08|@|21:14
 >
 

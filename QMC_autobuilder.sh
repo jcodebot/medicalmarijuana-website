@@ -9,7 +9,7 @@
 #-----------------------------------------------------------#
 # FileName: QMC_autobuilder.sh                              #
 # Desc: Should allow running qmc project with one click     #
-# Author: Slavko V.                                         #
+# Author: jcodenot                                         #
 # Date: 2021.01.08                                          #
 #-|-|-|-|-|-|-|-|-|-|-|-|-|-|-|-|-|-|-|-|-|-|-|-|-|-|-|-|-|-#
 echo -e '< \e[1mWelcome to QMC autobuilder\e[0m >'
